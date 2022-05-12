@@ -1,0 +1,7 @@
+Debug/
+Release/
+/src/edge-impulse-sdk/
+.settings/
+.vscode/
+
+*.launch
