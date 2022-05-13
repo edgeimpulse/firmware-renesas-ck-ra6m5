@@ -19,13 +19,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* Include ----------------------------------------------------------------- */
+ /* Include ----------------------------------------------------------------- */
 #include "model-parameters/model_metadata.h"
-#if defined(EI_CLASSIFIER_SENSOR) && EI_CLASSIFIER_SENSOR == EI_CLASSIFIER_SENSOR_MICROPHONE
+#if defined(EI_CLASSIFIER_SENSOR) && EI_CLASSIFIER_SENSOR == EI_CLASSIFIER_SENSOR_FUSION
 #include "edge-impulse-sdk/classifier/ei_run_classifier.h"
-#include "edge-impulse-sdk/dsp/numpy.hpp"
-#include "sensors/ei_microphone.h"
-#include "inference/ei_run_impulse.h"   // header
+#include "firmware-sdk/ei_fusion.h"
+#include "inference/ei_run_impulse.h"
 #include "ingestion-sdk-platform/renesas-ck-ra6m5/ei_device_renesas_ck_ra6m5.h"
 #include "model-parameters/model_variables.h"
 
@@ -36,18 +35,65 @@ typedef enum {
     INFERENCE_DATA_READY
 } inference_state_t;
 
-/* Private variables ------------------------------------------------------- */
 static int print_results;
 static uint16_t samples_per_inference;
 static inference_state_t state = INFERENCE_STOPPED;
 static uint64_t last_inference_ts = 0;
 static bool continuous_mode = false;
 static bool debug_mode = false;
-//static float samples_circ_buff[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE];
+static float samples_circ_buff[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE];
 static int samples_wr_index = 0;
 
-static void display_results(ei_impulse_result_t* result);
-/* ------------------------------------------------------------------------- */
+/**
+ * @brief Called for each single sample
+ * 
+ */
+bool samples_callback(const void *raw_sample, uint32_t raw_sample_size)
+{
+    if(state != INFERENCE_SAMPLING) {
+        // stop collecting samples if we are not in SAMPLING state
+        return true;
+    }
+
+    float *sample = (float *)raw_sample;
+
+    for(int i = 0; i < (int)(raw_sample_size / sizeof(float)); i++) {
+        samples_circ_buff[samples_wr_index++] = sample[i];
+        if(samples_wr_index > EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE) {
+            /* start from beginning of the circular buffer */
+            samples_wr_index = 0;
+        }
+        if(samples_wr_index >= samples_per_inference) {
+            state = INFERENCE_DATA_READY;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void display_results(ei_impulse_result_t* result)
+{
+    float max = 0.0f;
+    size_t max_ix = 0;
+
+    ei_printf("Predictions (DSP: %d ms., Classification: %d ms., Anomaly: %d ms.): \n",
+        result->timing.dsp, result->timing.classification, result->timing.anomaly);
+    for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {            
+        ei_printf("    %s: \t%f\r\n", result->classification[ix].label, result->classification[ix].value);
+    }
+#if EI_CLASSIFIER_HAS_ANOMALY == 1
+    ei_printf("    anomaly score: %f\r\n", result->anomaly);
+#endif
+
+    for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {       
+        if (result->classification[ix].value > max) {
+            max = result->classification[ix].value;
+            max_ix = ix;
+        }
+    }
+}
+
 /**
  *
  */
@@ -60,26 +106,18 @@ void ei_run_impulse(void)
             // nothing to do
             return;
         case INFERENCE_WAITING:
-            if(ei_read_timer_ms() < (last_inference_ts + 2000))
-            {
+            if(ei_read_timer_ms() < (last_inference_ts + 2000)) {
                 return;
             }
-            ei_printf("Recording\n");
             state = INFERENCE_SAMPLING;
+            ei_fusion_sample_start(&samples_callback, EI_CLASSIFIER_INTERVAL_MS);
             //dev->set_state(eiStateSampling);
-            ei_microphone_inference_reset_buffers();
             return;
-            break;
         case INFERENCE_SAMPLING:
-            ei_mic_thread(&inference_samples_callback);
-            if (ei_microphone_inference_is_recording() == true)
-            {
-                return;    /* not sure */
-            }
-            state = INFERENCE_DATA_READY;
-            ei_printf("Recording done\n");
-            break;
+            dev->sample_thread();
+            return;
         case INFERENCE_DATA_READY:
+            //dev->set_state(eiStateIdle);
             // nothing to do, just continue to inference provcessing below
             break;
         default:
@@ -88,8 +126,17 @@ void ei_run_impulse(void)
 
     signal_t signal;
 
-    signal.total_length = continuous_mode ? EI_CLASSIFIER_SLICE_SIZE : EI_CLASSIFIER_RAW_SAMPLE_COUNT;
-    signal.get_data = &ei_microphone_inference_get_data;
+    // shift circular buffer, so the newest data will be the first
+    // if samples_wr_index is 0, then roll is immediately returning
+    numpy::roll(samples_circ_buff, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, (-samples_wr_index));
+    /* reset wr index, the oldest data will be overwritten */
+    samples_wr_index = 0;
+
+    // Create a data structure to represent this window of data
+    int err = numpy::signal_from_buffer(samples_circ_buff, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
+    if (err != 0) {
+        ei_printf("ERR: signal_from_buffer failed (%d)\n", err); 
+    }
 
     // run the impulse: DSP, neural network and the Anomaly algorithm
     ei_impulse_result_t result = { 0 };
@@ -100,6 +147,7 @@ void ei_run_impulse(void)
     else {
         ei_error = run_classifier(&signal, &result, debug_mode);
     }
+
     if (ei_error != EI_IMPULSE_OK) {
         ei_printf("Failed to run impulse (%d)", ei_error);
         return;
@@ -125,33 +173,30 @@ void ei_run_impulse(void)
     }
 }
 
-/**
- *
- * @param continuous
- * @param debug
- * @param use_max_uart_speed
- */
 void ei_start_impulse(bool continuous, bool debug, bool use_max_uart_speed)
 {
-    //EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
-    const float sample_length = 1000.0f * static_cast<float>(EI_CLASSIFIER_RAW_SAMPLE_COUNT) /
-                        (1000.0f / static_cast<float>(EI_CLASSIFIER_INTERVAL_MS));
+    EiDeviceInfo *dev = EiDeviceInfo::get_device();
+
+    const char *axis_name = EI_CLASSIFIER_FUSION_AXES_STRING;
+    if (!ei_connect_fusion_list(axis_name, AXIS_FORMAT)) {
+        ei_printf("ERR: Failed to find sensor '%s' in the sensor list\n", axis_name);
+        return;
+    }
 
     continuous_mode = continuous;
     debug_mode = debug;
 
     // summary of inferencing settings (from model_metadata.h)
     ei_printf("Inferencing settings:\n");
-    ei_printf("\tInterval: ");
-    ei_printf_float(EI_CLASSIFIER_INTERVAL_MS);
-    ei_printf("ms.");
+    ei_printf("\tInterval: %.04fms.\n", (float)EI_CLASSIFIER_INTERVAL_MS);
     ei_printf("\tFrame size: %d\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
-    ei_printf("\tSample length: ");
-    ei_printf_float(sample_length);
-    ei_printf(" ms.");
+    ei_printf("\tSample length: %.02f ms.\n", (float)(EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_INTERVAL_MS));
     ei_printf("\tNo. of classes: %d\n", sizeof(ei_classifier_inferencing_categories) /
                                             sizeof(ei_classifier_inferencing_categories[0]));
     ei_printf("Starting inferencing, press 'b' to break\n");
+
+    dev->set_sample_length_ms(EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_INTERVAL_MS);
+    dev->set_sample_interval_ms(EI_CLASSIFIER_INTERVAL_MS);
 
     if (continuous == true) {
         samples_per_inference = EI_CLASSIFIER_SLICE_SIZE * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
@@ -170,53 +215,24 @@ void ei_start_impulse(bool continuous, bool debug, bool use_max_uart_speed)
         last_inference_ts = ei_read_timer_ms();
         state = INFERENCE_WAITING;
     }
-
-    /*
-     * TODO
-     * right parameters
-     */
-    ei_microphone_inference_start(continuous_mode ? EI_CLASSIFIER_SLICE_SIZE : EI_CLASSIFIER_RAW_SAMPLE_COUNT, EI_CLASSIFIER_INTERVAL_MS);
 }
 
-/**
- *
- */
-void ei_stop_impulse(void)
+void ei_stop_impulse(void) 
 {
+    EiDeviceInfo *dev = EiDeviceInfo::get_device();
+
     if(state != INFERENCE_STOPPED) {
+        state = INFERENCE_STOPPED;
         ei_printf("Inferencing stopped by user\r\n");
-        // EiDevice.set_state(eiStateFinished);
+        dev->set_state(eiStateFinished);
         /* reset samples buffer */
-        ei_microphone_inference_end();
         samples_wr_index = 0;
     }
-    state = INFERENCE_STOPPED;
 }
 
-/**
- *
- * @return
- */
 bool is_inference_running(void)
 {
     return (state != INFERENCE_STOPPED);
-}
-/* ------------------------------------------------------------------------- */
-/**
- *
- */
-static void display_results(ei_impulse_result_t* result)
-{
-    ei_printf("Predictions (DSP: %d ms., Classification: %d ms., Anomaly: %d ms.): \n",
-        result->timing.dsp, result->timing.classification, result->timing.anomaly);
-    for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
-        ei_printf("    %s: \t", result->classification[ix].label);
-        ei_printf_float(result->classification[ix].value);
-        ei_printf("\r\n");
-    }
-#if EI_CLASSIFIER_HAS_ANOMALY == 1
-    ei_printf("    anomaly score: %f\r\n", result->anomaly);
-#endif
 }
 
 #endif
