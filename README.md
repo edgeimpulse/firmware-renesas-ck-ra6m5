@@ -24,6 +24,8 @@ Toolchain ARM GCC 10.3.2021
 
 ### Using e2studio
 
+> **Note:** e2studio is available for Windows 10 & 11 and Linux Os with x86_64 architecture.
+
 1. Install [e2studio](https://www.renesas.com/us/en/software-tool/e-studio) (during installation add option for Renesas RA support) and download [FSP 3.5.0](https://github.com/renesas/fsp/releases/tag/v3.5.0)
 1. Unpack FSP 3.5.0 in the directory ofe2studio looks for. It's OS depentand, can be checked from Help->CMSIS Packs Management->Renesas RA->Show in System Explorer. Go up to \internal folder and here the zip can be unpacked.
 1. Verify that the toolchain is present checking in Help->Add Renesas Toolchains. If not, download the one for your OS and add it here.
@@ -31,6 +33,9 @@ Toolchain ARM GCC 10.3.2021
 1. To build the project: Project->Build All
 
 ### Build with docker
+
+> **Note:** Docker build can be done with MacOs, Windows 10 & 11 and Linux with x86_64 architecture
+
 1. Build container
 
     ```
