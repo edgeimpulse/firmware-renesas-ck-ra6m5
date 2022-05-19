@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 
-#define EI_MAX_FREQUENCIES 5
+#define EI_MAX_FREQUENCIES 3
 
 /** Format used in input list. Can either contain sensor names or axes names */
 typedef enum

@@ -5,3 +5,4 @@ Release/
 .vscode/
 
 *.launch
+*.DS_Store

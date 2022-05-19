@@ -105,7 +105,7 @@ int ei_main(void)
 
     /* debug sensors, remove ! */
 
-#if EI_TEST_INDOOR_AQS == 1 || EI_TEST_OUTDOOR_AQS == 1 || EI_TEST_TEMP_HUM_TEST == 1 || EI_TEST_BAROMETRIC == 1 || EI_TEST_BAROMETRIC == 1 || EI_TEST_MIC == 1
+#if EI_TEST_INDOOR_AQS == 1 || EI_TEST_OUTDOOR_AQS == 1 || EI_TEST_TEMP_HUM_TEST == 1 || EI_TEST_BAROMETRIC == 1 || EI_TEST_BAROMETRIC == 1 || EI_TEST_MIC == 1 || EI_TEST_INERTIAL
     ei_test_sensors();
 #endif
 

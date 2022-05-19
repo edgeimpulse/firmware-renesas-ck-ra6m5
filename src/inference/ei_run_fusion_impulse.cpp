@@ -46,7 +46,6 @@ static int samples_wr_index = 0;
 
 /**
  * @brief Called for each single sample
- * 
  */
 bool samples_callback(const void *raw_sample, uint32_t raw_sample_size)
 {
@@ -72,6 +71,9 @@ bool samples_callback(const void *raw_sample, uint32_t raw_sample_size)
     return false;
 }
 
+/**
+ * @brief
+ */
 static void display_results(ei_impulse_result_t* result)
 {
     float max = 0.0f;
@@ -80,7 +82,9 @@ static void display_results(ei_impulse_result_t* result)
     ei_printf("Predictions (DSP: %d ms., Classification: %d ms., Anomaly: %d ms.): \n",
         result->timing.dsp, result->timing.classification, result->timing.anomaly);
     for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {            
-        ei_printf("    %s: \t%f\r\n", result->classification[ix].label, result->classification[ix].value);
+        ei_printf("    %s: \t", result->classification[ix].label);
+        ei_printf_float(result->classification[ix].value);
+        ei_printf("\r\n");
     }
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
     ei_printf("    anomaly score: %f\r\n", result->anomaly);
@@ -95,7 +99,7 @@ static void display_results(ei_impulse_result_t* result)
 }
 
 /**
- *
+ * @brief
  */
 void ei_run_impulse(void)
 {
@@ -173,6 +177,9 @@ void ei_run_impulse(void)
     }
 }
 
+/**
+ * @brief
+ */
 void ei_start_impulse(bool continuous, bool debug, bool use_max_uart_speed)
 {
     EiDeviceInfo *dev = EiDeviceInfo::get_device();
@@ -188,9 +195,13 @@ void ei_start_impulse(bool continuous, bool debug, bool use_max_uart_speed)
 
     // summary of inferencing settings (from model_metadata.h)
     ei_printf("Inferencing settings:\n");
-    ei_printf("\tInterval: %.04fms.\n", (float)EI_CLASSIFIER_INTERVAL_MS);
+    ei_printf("\tInterval: ");
+    ei_printf_float((float)EI_CLASSIFIER_INTERVAL_MS);
+    ei_printf(" ms.");
     ei_printf("\tFrame size: %d\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
-    ei_printf("\tSample length: %.02f ms.\n", (float)(EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_INTERVAL_MS));
+    ei_printf("\tSample length: ");
+    ei_printf_float((EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_INTERVAL_MS));
+    ei_printf(" ms.");
     ei_printf("\tNo. of classes: %d\n", sizeof(ei_classifier_inferencing_categories) /
                                             sizeof(ei_classifier_inferencing_categories[0]));
     ei_printf("Starting inferencing, press 'b' to break\n");
@@ -217,6 +228,9 @@ void ei_start_impulse(bool continuous, bool debug, bool use_max_uart_speed)
     }
 }
 
+/**
+ * @brief
+ */
 void ei_stop_impulse(void) 
 {
     EiDeviceInfo *dev = EiDeviceInfo::get_device();
@@ -230,6 +244,9 @@ void ei_stop_impulse(void)
     }
 }
 
+/**
+ * @brief
+ */
 bool is_inference_running(void)
 {
     return (state != INFERENCE_STOPPED);

@@ -23,8 +23,10 @@
 #ifndef EI_FUSION_SENSORS_CONFIG_H
 #define EI_FUSION_SENSORS_CONFIG_H
 
+/* Used */
+#define NUM_MAX_FUSIONS          3      // max number of sensor module combinations
+/* Not used, but keep for retro*/
 #define NUM_FUSION_SENSORS       5      // number of usable sensor modules
-#define NUM_MAX_FUSIONS          2      // max number of sensor module combinations
 #define FUSION_FREQUENCY         12.5f  // sampling frequency for fusion samples
 #define NUM_MAX_FUSION_AXIS      20     // max number of axis to sample
 #define SIZEOF_SENSOR_NAME       20     // char alloc for sensor module name

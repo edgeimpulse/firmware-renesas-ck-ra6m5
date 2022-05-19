@@ -18,7 +18,7 @@ extern iic_master_instance_ctrl_t g_i2c_master0_ctrl;
 extern const i2c_master_cfg_t g_i2c_master0_cfg;
 
 #ifndef rm_comms_i2c_callback
-void rm_comms_i2c_callback(i2c_master_callback_args_t * p_args);
+void rm_comms_i2c_callback(i2c_master_callback_args_t *p_args);
 #endif
 /* I2C Shared Bus */
 extern rm_comms_i2c_bus_extended_cfg_t g_comms_i2c_bus0_extended_cfg;

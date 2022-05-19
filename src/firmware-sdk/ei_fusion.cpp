@@ -369,6 +369,11 @@ static void print_all_combinations(
     int r,
     uint32_t ingest_memory_size)
 {
+    //float lf1 = lowest_frequency(&fusable_sensor_list[data[0]].frequencies[0], EI_MAX_FREQUENCIES);
+    //float lf2 = lowest_frequency(&fusable_sensor_list[index].frequencies[0], EI_MAX_FREQUENCIES);
+    float f_min = FLT_MAX;
+    float f_temp_min = FLT_MAX;
+
     stringstream buf;
     fused_sensors_t sens;
     /* Print sensor string if requested combinations found */
@@ -377,6 +382,12 @@ static void print_all_combinations(
         for (int j = 0; j < r; j++) {
             buf << fusable_sensor_list[data[j]].name;
             num_fusion_axis += fusable_sensor_list[data[j]].num_axis;
+            f_temp_min = highest_frequency(&fusable_sensor_list[data[j]].frequencies[0], EI_MAX_FREQUENCIES);
+
+            if (f_temp_min < f_min)
+            {
+                f_min = f_temp_min;
+            }
 
             if (j + 1 < r) {
                 buf << " + ";
@@ -398,14 +409,6 @@ static void print_all_combinations(
         else {
             // data[0] vs index
             // fusion, use set freq
-            float lf1 = lowest_frequency(&fusable_sensor_list[data[0]].frequencies[0], EI_MAX_FREQUENCIES);
-            float lf2 = lowest_frequency(&fusable_sensor_list[index].frequencies[0], EI_MAX_FREQUENCIES);
-            float f_min = lf1;
-
-            if (f_min > lf2){
-                f_min = lf2;
-            }
-
             sens.max_sample_length =
                 (int)(ingest_memory_size / (f_min * (sizeof(fusion_sample_format_t) * num_fusion_axis) * 2));
             sens.frequencies.push_back(f_min);
