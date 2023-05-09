@@ -1,23 +1,17 @@
 /* Edge Impulse ingestion SDK
- * Copyright (c) 2021 EdgeImpulse Inc.
+ * Copyright (c) 2022 EdgeImpulse Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
  */
 /* Include ----------------------------------------------------------------- */
 #include "ei_microphone.h"
@@ -28,7 +22,7 @@
 #include "ingestion-sdk/ei_sampler.h"
 #include "firmware-sdk/ei_device_info_lib.h"
 #include "firmware-sdk/sensor_aq.h"
-#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
+#include "edge-impulse-sdk/dsp/numpy.hpp"
 
 #include "ei_dc_blocking.h"
 #define FAKE_ON 0
@@ -89,11 +83,14 @@ static sensor_aq_ctx ei_mic_ctx = {
  */
 bool ei_microphone_sample_start(void)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
     EiFlashMemory* mem = static_cast<EiFlashMemory*>(dev->get_memory());
+
     uint8_t *page_buffer;
     int ret;
     uint32_t required_samples;
+
+    ei_mic_init();
 
     sensor_aq_payload_info payload = {
         dev->get_device_id().c_str(),
@@ -124,8 +121,6 @@ bool ei_microphone_sample_start(void)
           ((mem->get_available_sample_bytes() / (16000 * sizeof(microphone_sample_t))) * 1000));
       return false;
     }
-
-    ei_mic_init();
 
     uint32_t delay_time_ms = ((required_samples_size / mem->block_size) + 1) * mem->block_erase_time;
     ei_printf("Starting in %lu ms... (or until all flash was erased)\n", delay_time_ms < 2000 ? 2000 : delay_time_ms);
@@ -294,7 +289,7 @@ void inference_samples_callback(const int16_t *buffer, uint32_t sample_count)
  */
 static void ingestion_samples_callback(const int16_t *buffer, uint32_t sample_count)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
     EiFlashMemory* mem = static_cast<EiFlashMemory*>(dev->get_memory());
 
     if(sample_count > MIC_SAMPLE_SIZE) {
@@ -320,7 +315,7 @@ static void ingestion_samples_callback(const int16_t *buffer, uint32_t sample_co
  */
 int ei_microphone_inference_get_data(size_t offset, size_t length, float *out_ptr)
 {
-    arm_q15_to_float(&inference.buffers[inference.buf_select ^ 1][offset], out_ptr, length);
+    ei::numpy::int16_to_float(&inference.buffers[inference.buf_select ^ 1][offset], out_ptr, length);
     inference.buf_ready = 0;
 
     return 0;
@@ -456,7 +451,7 @@ void ei_mic_test(void)
             {
                 for (uint32_t i = 0; i< index; i++)
                 {
-                    ei_printf("%d = %ld\r\n", i, _readl_buffer_audio[i]);
+                    ei_printf("%ld = %ld\r\n", i, _readl_buffer_audio[i]);
                 }
             }
 
@@ -545,7 +540,7 @@ static int insert_ref(char *buffer, int hdrLength)
 static bool create_header(sensor_aq_payload_info *payload)
 {
     int ret;
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
     EiFlashMemory* mem = static_cast<EiFlashMemory*>(dev->get_memory());
     sensor_aq_init_mbedtls_hs256_context(&ei_mic_signing_ctx, &ei_mic_hs_ctx, dev->get_sample_hmac_key().c_str());
 

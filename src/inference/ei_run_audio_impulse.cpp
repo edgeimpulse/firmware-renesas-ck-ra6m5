@@ -21,7 +21,7 @@
  */
 /* Include ----------------------------------------------------------------- */
 #include "model-parameters/model_metadata.h"
-#if defined(EI_CLASSIFIER_SENSOR) && EI_CLASSIFIER_SENSOR == EI_CLASSIFIER_SENSOR_MICROPHONE
+#if defined(EI_CLASSIFIER_SENSOR) && (EI_CLASSIFIER_SENSOR == EI_CLASSIFIER_SENSOR_MICROPHONE)
 #include "edge-impulse-sdk/classifier/ei_run_classifier.h"
 #include "edge-impulse-sdk/dsp/numpy.hpp"
 #include "sensors/ei_microphone.h"
@@ -53,7 +53,7 @@ static void display_results(ei_impulse_result_t* result);
  */
 void ei_run_impulse(void)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
 
     switch(state) {
         case INFERENCE_STOPPED:
@@ -133,7 +133,6 @@ void ei_run_impulse(void)
  */
 void ei_start_impulse(bool continuous, bool debug, bool use_max_uart_speed)
 {
-    //EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
     const float sample_length = 1000.0f * static_cast<float>(EI_CLASSIFIER_RAW_SAMPLE_COUNT) /
                         (1000.0f / static_cast<float>(EI_CLASSIFIER_INTERVAL_MS));
 
@@ -175,7 +174,10 @@ void ei_start_impulse(bool continuous, bool debug, bool use_max_uart_speed)
      * TODO
      * right parameters
      */
-    ei_microphone_inference_start(continuous_mode ? EI_CLASSIFIER_SLICE_SIZE : EI_CLASSIFIER_RAW_SAMPLE_COUNT, EI_CLASSIFIER_INTERVAL_MS);
+    if (ei_microphone_inference_start(continuous_mode ? EI_CLASSIFIER_SLICE_SIZE : EI_CLASSIFIER_RAW_SAMPLE_COUNT, EI_CLASSIFIER_INTERVAL_MS) == false){
+        ei_printf("ERR: Could not allocate audio buffer (size %d), this could be due to the window length of your model\r\n", EI_CLASSIFIER_RAW_SAMPLE_COUNT);
+        return;
+    }
 }
 
 /**
@@ -189,6 +191,7 @@ void ei_stop_impulse(void)
         /* reset samples buffer */
         ei_microphone_inference_end();
         samples_wr_index = 0;
+        run_classifier_deinit();
     }
     state = INFERENCE_STOPPED;
 }
@@ -215,7 +218,9 @@ static void display_results(ei_impulse_result_t* result)
         ei_printf("\r\n");
     }
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
-    ei_printf("    anomaly score: %f\r\n", result->anomaly);
+    ei_printf("    anomaly score: ");
+    ei_printf_float(result->anomaly);
+    ei_printf("\r\n");
 #endif
 }
 

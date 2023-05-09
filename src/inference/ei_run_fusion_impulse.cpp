@@ -21,7 +21,7 @@
  */
  /* Include ----------------------------------------------------------------- */
 #include "model-parameters/model_metadata.h"
-#if defined(EI_CLASSIFIER_SENSOR) && EI_CLASSIFIER_SENSOR == EI_CLASSIFIER_SENSOR_FUSION
+#if defined(EI_CLASSIFIER_SENSOR) && (EI_CLASSIFIER_SENSOR == EI_CLASSIFIER_SENSOR_FUSION || EI_CLASSIFIER_SENSOR == EI_CLASSIFIER_SENSOR_ACCELEROMETER)
 #include "edge-impulse-sdk/classifier/ei_run_classifier.h"
 #include "firmware-sdk/ei_fusion.h"
 #include "inference/ei_run_impulse.h"
@@ -64,6 +64,7 @@ bool samples_callback(const void *raw_sample, uint32_t raw_sample_size)
         }
         if(samples_wr_index >= samples_per_inference) {
             state = INFERENCE_DATA_READY;
+            ei_printf("Recording done\n");
             return true;
         }
     }
@@ -87,7 +88,9 @@ static void display_results(ei_impulse_result_t* result)
         ei_printf("\r\n");
     }
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
-    ei_printf("    anomaly score: %f\r\n", result->anomaly);
+    ei_printf("    anomaly score: ");
+    ei_printf_float(result->anomaly);
+    ei_printf("\r\n");
 #endif
 
     for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {       
@@ -103,7 +106,8 @@ static void display_results(ei_impulse_result_t* result)
  */
 void ei_run_impulse(void)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
+    float interval = EI_CLASSIFIER_INTERVAL_MS;
 
     switch(state) {
         case INFERENCE_STOPPED:
@@ -113,8 +117,9 @@ void ei_run_impulse(void)
             if(ei_read_timer_ms() < (last_inference_ts + 2000)) {
                 return;
             }
+            ei_printf("Recording\n");
             state = INFERENCE_SAMPLING;
-            ei_fusion_sample_start(&samples_callback, EI_CLASSIFIER_INTERVAL_MS);
+            ei_fusion_sample_start(&samples_callback, interval);
             //dev->set_state(eiStateSampling);
             return;
         case INFERENCE_SAMPLING:
@@ -241,6 +246,7 @@ void ei_stop_impulse(void)
         dev->set_state(eiStateFinished);
         /* reset samples buffer */
         samples_wr_index = 0;
+        run_classifier_deinit();
     }
 }
 

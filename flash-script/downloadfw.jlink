@@ -1,0 +1,11 @@
+device R7FA6M5BH
+LE
+SI SWD
+speed 4000
+r
+h
+erase
+loadfile ../Debug/firmware-renesas-ck-ra6m5.hex
+r
+g
+quit

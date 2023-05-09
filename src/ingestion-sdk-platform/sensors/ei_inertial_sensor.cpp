@@ -1,23 +1,17 @@
 /* Edge Impulse ingestion SDK
  * Copyright (c) 2022 EdgeImpulse Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
  */
 /* Include ----------------------------------------------------------------- */
 #include "ei_inertial_sensor.h"
@@ -33,13 +27,7 @@
 /* for printf */
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 
-/* */
-sampler_callback  cb_acc_sampler;
-uint32_t _samples_interval;
-volatile bool _sampling_finished;
-typedef void(*local_sampler_callback)(void);
 
-static local_sampler_callback local_cb;
 static float inertial_fusion_data[INERTIAL_AXIS_SAMPLED];
 /* Constant ---------------------------------------------------------------- */
 #define INERTIAL_SENSOR_ADDRESS     (0x68)
@@ -149,7 +137,6 @@ static int ei_inertial_write_register(uint8_t reg, uint8_t data);
 static int ei_inertial_write_mag_register(uint8_t reg, uint8_t data);
 static int ei_inertial_read_mag_register(uint8_t reg, uint8_t* data, uint8_t n_bytes);
 static bool ei_inertial_read_internal_temp(float* temp);
-static void ei_inertial_read_acc_cb(void);
 static void ei_gyro_offset(void);
 static bool ei_inertial_init_mag(void);
 
@@ -163,11 +150,10 @@ bool ei_inertial_init(void)
 {
     g_comms_i2c_accelerometer.p_api->open(g_comms_i2c_accelerometer.p_ctrl, g_comms_i2c_accelerometer.p_cfg);
 
-    cb_acc_sampler = nullptr;
-
     if (ei_inertial_check_presence() == false)
     {
         ei_printf("ERR: failed to init Inertial sensor!\n");
+        return false;
     }
 
     ei_inertial_init_config();
@@ -180,68 +166,6 @@ bool ei_inertial_init(void)
     }
 
     return true;
-}
-
-/**
- * @brief 
- * 
- * @param callsampler callback to ei_sampler
- * @param sample_interval_ms 
- * @return true 
- * @return false 
- */
-bool ei_inertial_accel_sample_start(sampler_callback callsampler, float sample_interval_ms)
-{
-    EiDeviceCKRA6M5 *ei_device =  EiDeviceCKRA6M5::get_device();
-    cb_acc_sampler = callsampler;
-
-    _sampling_finished = false;
-    _samples_interval = (uint32_t)sample_interval_ms;
-
-    ei_device->start_sample_thread(&ei_inertial_read_acc_cb, sample_interval_ms);
-    return true;
-}
-
-/**
- * @brief Setup sampling for just the accelerometer
- * 
- * @return true 
- * @return false 
- */
-bool ei_intertial_accel_setup_data_sampling(void)
-{
-    bool sample_start = false;
-    EiDeviceCKRA6M5 *ei_device =  EiDeviceCKRA6M5::get_device();
-    EiDeviceMemory* mem = ei_device->get_memory();
-
-    if (ei_device->get_sample_interval_ms() < 10.0f ) {
-        ei_device->set_sample_interval_ms(10.0f);
-    }
-
-    uint32_t available_bytes = (mem->get_available_sample_blocks() - 1) * mem->block_size;  //
-    uint32_t requested_bytes = (uint32_t)ceil((ei_device->get_sample_length_ms() / ei_device->get_sample_interval_ms()) * SIZEOF_ACCEL_AXIS_SAMPLED * 2);
-
-    if(requested_bytes > available_bytes) {
-        ei_printf("ERR: Sample length is too long. Maximum allowed is %ims at %.1fHz.\r\n",
-            (int)floor(available_bytes / ((SIZEOF_ACCEL_AXIS_SAMPLED * 2) / ei_device->get_sample_interval_ms())),
-            (1000 / ei_device->get_sample_interval_ms()));
-        return false;
-    }
-
-    sensor_aq_payload_info payload = {
-        // Unique device ID (optional), set this to e.g. MAC address or device EUI **if** your device has one
-                                      ei_device->get_device_id().c_str(),
-        // Device type (required), use the same device type for similar devices
-                                      ei_device->get_device_type().c_str(),
-        // How often new data is sampled in ms. (100Hz = every 10 ms.)
-        ei_device->get_sample_interval_ms(),
-        // The axes which you'll use. The units field needs to comply to SenML units (see https://www.iana.org/assignments/senml/senml.xhtml)
-        { { "accX", "m/s2" }, { "accY", "m/s2" }, { "accZ", "m/s2" }},
-    };
-
-    sample_start = ei_sampler_start_sampling(&payload, &ei_inertial_accel_sample_start, SIZEOF_ACCEL_AXIS_SAMPLED);
-
-    return sample_start;
 }
 
 /**
@@ -270,7 +194,7 @@ bool ei_inertial_check_presence(void)
         }
         else
         {
-            ei_printf("TEST FAILED: I2C read OK, but ID read is NOK0x%2x \r\n", rx_buffer);
+            ei_printf("TEST FAILED: I2C read OK, but ID read is NOK 0x%2x\r\n", rx_buffer);
         }
     }
     else
@@ -534,41 +458,6 @@ static bool ei_inertial_read_accelerometer(float* acc_data)
     }
 
     return read;
-}
-
-/**
- *
- * @return
- */
-static void ei_inertial_read_acc_cb(void)
-{
-    float acc_data[3] = {0};
-    uint8_t rx_data[6u] = {0};
-    uint8_t i;
-
-    ei_inertial_change_bank(BANK_0);
-
-    if (ei_i2c_read_byte_command(&g_comms_i2c_accelerometer_ctrl, BK_0_REGISTER_ACCEL_XOUT_H, &rx_data[0], sizeof(rx_data), I2C_NO_WAIT_BETWEEN_W_R) == 0)
-    {
-        for (i = 0; i < 3; i++)
-        {
-            acc_data[i] = (float)((int16_t)(rx_data[i*2] << 8) | rx_data[i*2 + 1]);
-            acc_data[i] *= ACC_SCALE_FACTOR;
-        }
-    }
-
-    if (cb_acc_sampler != nullptr)
-    {
-        if (cb_acc_sampler((const void *)&acc_data[0], SIZEOF_ACCEL_AXIS_SAMPLED) == true)
-        {
-            _sampling_finished = true;
-            ei_timer1_stop();
-        }
-        else
-        {
-            ei_timer1_start((uint32_t)_samples_interval);
-        }
-    }
 }
 
 /**

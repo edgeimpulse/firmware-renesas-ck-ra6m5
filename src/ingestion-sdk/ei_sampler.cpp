@@ -27,7 +27,6 @@
 #include "ingestion-sdk-platform/renesas-ck-ra6m5/ei_device_renesas_ck_ra6m5.h"
 #include "peripheral/timer_handler.h"
 #include "bsp_api.h"
-#include "sensors/ei_inertial_sensor.h"
 
 /* Forward declarations ---------------------------------------------------- */
 
@@ -42,6 +41,7 @@ static void ei_write_last_data(void);
 /* Private variables ------------------------------------------------------- */
 static uint32_t samples_required;
 static uint32_t current_sample;
+static uint32_t sample_counter_increase;
 static uint32_t sample_buffer_size;
 static uint32_t headerOffset = 0;
 EI_SENSOR_AQ_STREAM stream;
@@ -69,9 +69,11 @@ static sensor_aq_ctx ei_sensor_ctx = {
  */
 bool ei_sampler_start_sampling(void *v_ptr_payload, starter_callback ei_sample_start, uint32_t sample_size)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
     EiFlashMemory* mem = static_cast<EiFlashMemory*>(dev->get_memory());
     sensor_aq_payload_info *payload = (sensor_aq_payload_info *)v_ptr_payload;
+
+    uint8_t num_fusions;    // new stuff that i need
 
     ei_printf("Sampling settings:\n");
     ei_printf("\tInterval: ");
@@ -82,8 +84,10 @@ bool ei_sampler_start_sampling(void *v_ptr_payload, starter_callback ei_sample_s
     ei_printf("\tHMAC Key: %s\n", (dev->get_sample_hmac_key().c_str()));
     ei_printf("\tFile name: %s\n", dev->get_sample_label().c_str());
 
-    samples_required = (uint32_t)(((float)dev->get_sample_length_ms()) / dev->get_sample_interval_ms());
-    sample_buffer_size = (samples_required * sample_size) * 2;  // why 2?
+    samples_required = (uint32_t)((float)dev->get_sample_length_ms());
+    sample_counter_increase = (uint32_t)dev->get_sample_interval_ms();
+
+    sample_buffer_size = ((samples_required/sample_counter_increase) * sample_size) * 2;  // why 2?
     current_sample = 0;
 
     if (dev->is_warmup_required() == false)
@@ -128,7 +132,7 @@ bool ei_sampler_start_sampling(void *v_ptr_payload, starter_callback ei_sample_s
         return false;
     }
 
-    while(current_sample <= samples_required) {
+    while(current_sample < samples_required) {
         dev->sample_thread();
         __WFI();    // yeah ?
     };
@@ -156,7 +160,7 @@ bool ei_sampler_start_sampling(void *v_ptr_payload, starter_callback ei_sample_s
 
     uint32_t j = mem->read_sample_data(page_buffer, 0, mem->block_size);
     if (j != mem->block_size) {
-        ei_printf("Failed to read first page (%ld)\n", j);
+        ei_printf("Failed to read first page (%lu)\n", j);
         ei_free(page_buffer);
         return false;
     }
@@ -183,7 +187,7 @@ bool ei_sampler_start_sampling(void *v_ptr_payload, starter_callback ei_sample_s
 
     j = mem->erase_sample_data(0, mem->block_size);
     if (j != mem->block_size) {
-        ei_printf("Failed to erase first page (%d)\n", j);
+        ei_printf("Failed to erase first page (%lu)\n", j);
         ei_free(page_buffer);
         return false;
     }
@@ -193,7 +197,7 @@ bool ei_sampler_start_sampling(void *v_ptr_payload, starter_callback ei_sample_s
     ei_free(page_buffer);
 
     if (j != mem->block_size) {
-        ei_printf("Failed to write first page with updated hash (%d)\n", j);
+        ei_printf("Failed to write first page with updated hash (%lu)\n", j);
         return false;
     }
 
@@ -216,9 +220,12 @@ bool ei_sampler_start_sampling(void *v_ptr_payload, starter_callback ei_sample_s
  */
 static bool sample_data_callback(const void *sample_buf, uint32_t byteLenght)
 {
-    sensor_aq_add_data(&ei_sensor_ctx, (float *)sample_buf, byteLenght / sizeof(float));
+    if (byteLenght != 0) {
+        sensor_aq_add_data(&ei_sensor_ctx, (float *)sample_buf, byteLenght / sizeof(float));
+    }
 
-    if(++current_sample > samples_required) {
+    current_sample += sample_counter_increase;
+    if(current_sample >= samples_required) {
         return true;
     }
     else {
@@ -239,7 +246,7 @@ static bool sample_data_callback(const void *sample_buf, uint32_t byteLenght)
  */
 static size_t ei_write(const void *buffer, size_t size, size_t count, EI_SENSOR_AQ_STREAM *)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
     EiFlashMemory* mem = static_cast<EiFlashMemory*>(dev->get_memory());
 
     for (size_t i = 0; i < count; i++) {
@@ -283,7 +290,7 @@ static time_t ei_time(time_t *t)
  */
 static bool create_header(sensor_aq_payload_info *payload)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
     EiFlashMemory* mem = static_cast<EiFlashMemory*>(dev->get_memory());
     sensor_aq_init_mbedtls_hs256_context(&ei_sensor_signing_ctx, &ei_sensor_hs_ctx, dev->get_sample_hmac_key().c_str());
 
@@ -331,7 +338,7 @@ static bool create_header(sensor_aq_payload_info *payload)
  */
 static void ei_write_last_data(void)
 {
-    EiDeviceCKRA6M5 *dev = EiDeviceCKRA6M5::get_device();
+    EiDeviceCKRA6M5* dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
     EiFlashMemory* mem = static_cast<EiFlashMemory*>(dev->get_memory());
     uint8_t fill = ((uint8_t)write_addr & 0x03);
     uint8_t insert_end_address = 0;

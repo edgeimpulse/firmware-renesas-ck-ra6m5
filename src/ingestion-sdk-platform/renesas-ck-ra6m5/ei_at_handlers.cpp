@@ -24,6 +24,8 @@
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include "ei_fusion.h"
 #include "ei_device_lib.h"
+#include "ei_device_interface.h"
+#include "at_base64_lib.h"
 #include "inference/ei_run_impulse.h"
 #include "sensors/ei_air_quality_indoor.h"
 #include "sensors/ei_air_quality_outdoor.h"
@@ -31,6 +33,8 @@
 #define AT_WARMUP_ARGS              "SENSOR"
 #define WARMUP_INDOOR_INDEX         0
 #define WARMUP_OUTDOOR_INDEX        1
+
+#define TRANSFER_BUF_LEN 32
 
 EiDeviceCKRA6M5 *pei_device;
 
@@ -56,6 +60,8 @@ static bool at_read_raw(const char **argv, const int argc);
 
 static bool at_run_nn_normal(void);
 static bool at_run_nn_normal_cont(void);
+static bool at_run_impulse_debug(const char **argv, const int argc);
+static bool at_run_impulse_static_data(const char **argv, const int argc);
 
 static bool at_get_mgmt_settings(void);
 static bool at_set_mgmt_settings(const char **argv, const int argc);
@@ -82,7 +88,9 @@ ATServer *ei_at_init(EiDeviceCKRA6M5 *ei_device)
   at->register_command(AT_SAMPLESTART, AT_SAMPLESTART_HELP_TEXT, nullptr, nullptr, at_sample_start, AT_SAMPLESTART_ARGS);
   at->register_command(AT_SAMPLESETTINGS, AT_SAMPLESETTINGS_HELP_TEXT, nullptr, at_get_sample_settings, at_set_sample_settings, AT_SAMPLESETTINGS_ARGS);
   at->register_command(AT_RUNIMPULSE, AT_RUNIMPULSE_HELP_TEXT, at_run_nn_normal, nullptr, nullptr, nullptr);
+  at->register_command(AT_RUNIMPULSEDEBUG, AT_RUNIMPULSEDEBUG_HELP_TEXT, nullptr, nullptr, at_run_impulse_debug, AT_RUNIMPULSEDEBUG_ARGS);
   at->register_command(AT_RUNIMPULSECONT, AT_RUNIMPULSECONT_HELP_TEXT, at_run_nn_normal_cont, nullptr, nullptr, nullptr);
+  at->register_command(AT_RUNIMPULSESTATIC, AT_RUNIMPULSESTATIC_HELP_TEXT, nullptr, nullptr, at_run_impulse_static_data, AT_RUNIMPULSESTATIC_ARGS);
   at->register_command(AT_READBUFFER, AT_READBUFFER_HELP_TEXT, nullptr, nullptr, at_read_buffer, AT_READBUFFER_ARGS);
   at->register_command(AT_MGMTSETTINGS, AT_MGMTSETTINGS_HELP_TEXT, nullptr, at_get_mgmt_settings, at_set_mgmt_settings, AT_MGMTSETTINGS_ARGS);
   at->register_command(AT_UPLOADSETTINGS, AT_UPLOADSETTINGS_HELP_TEXT, nullptr, at_get_upload_settings, at_set_upload_settings, AT_UPLOADSETTINGS_ARGS);
@@ -219,7 +227,7 @@ static bool at_clear_config(void)
     {
 
     }
-    
+
 
     return ret_val;
 }
@@ -285,7 +293,7 @@ static bool at_get_sample_settings(void)
     {
 
     }
-    
+
     return ret_val;
 }
 
@@ -334,6 +342,26 @@ static bool at_run_nn_normal(void)
 }
 
 /**
+ * @brief
+ *
+ * @param argv
+ * @param argc
+ * @return true
+ * @return false
+ */
+static bool at_run_impulse_debug(const char **argv, const int argc)
+{
+    bool use_max_uart_speed = false;
+    if (argc > 0 && argv[0][0] == 'y') {
+        use_max_uart_speed = true;
+    }
+
+    ei_start_impulse(false, true, use_max_uart_speed);
+
+    return true;
+}
+
+/**
  * @brief Handler for RUNIMPULSECONT
  *
  * @return
@@ -343,6 +371,21 @@ static bool at_run_nn_normal_cont(void)
     ei_start_impulse(true, false, false);
 
     return (is_inference_running());
+}
+
+static bool at_run_impulse_static_data(const char **argv, const int argc)
+{
+
+    if (check_args_num(2, argc) == false) {
+        return false;
+    }
+
+    bool debug = (argv[0][0] == 'y');
+    size_t length = (size_t)atoi(argv[1]);
+
+    bool res = run_impulse_static_data(debug, length, TRANSFER_BUF_LEN);
+
+    return res;
 }
 
 /**
@@ -437,7 +480,7 @@ static bool at_set_mgmt_settings(const char **argv, const int argc)
  * @return
  */
 static bool at_list_sensors(void)
-{    
+{
     bool ret_val = false;
     const ei_device_sensor_t *list;
     size_t list_size;

@@ -31,10 +31,7 @@ static volatile bool _i2c_completed = false;
 static fsp_err_t validate_i2c_event(void);
 static int ei_i2c_final_read(rm_comms_ctrl_t * const p_api_ctrl, uint8_t* read_data, uint16_t bytes);
 
-/* TODO: Enable if you want to open I2C bus */
 static void g_comms_i2c_bus0_quick_setup(void);
-
-/* TODO: Enable if you want to close I2C bus */
 static void g_comms_i2c_bus0_quick_shutdown(void);
 
 /* Public functions -------------------------------------------------------- */
@@ -46,11 +43,18 @@ static void g_comms_i2c_bus0_quick_shutdown(void);
  */
 int ei_i2c_init(void)
 {
-    fsp_err_t err     = FSP_SUCCESS;
+    fsp_err_t               err     = FSP_SUCCESS;
+    i2c_master_status_t     status;
+    i2c_master_instance_t * p_driver_instance = (i2c_master_instance_t *) g_comms_i2c_bus0_extended_cfg.p_driver_instance;
 
     /* opening IIC master module */
-    //err = R_IIC_MASTER_Open(&g_i2c_master0_ctrl, &g_i2c_master0_cfg);
-    g_comms_i2c_bus0_quick_setup(); /* should I call both ?? I think in the end are the same ... */
+    g_comms_i2c_bus0_quick_shutdown();
+    g_comms_i2c_bus0_quick_setup();
+    R_IIC_MASTER_StatusGet(p_driver_instance->p_ctrl, &status);
+
+    if (status.open != true){
+        err = FSP_ERR_NOT_OPEN;
+    }
 
     return (int)err;
 }
@@ -62,8 +66,16 @@ int ei_i2c_init(void)
 int ei_i2c_deinit(void)
 {
     fsp_err_t err     = FSP_SUCCESS;
+    i2c_master_status_t     status;
+    i2c_master_instance_t * p_driver_instance = (i2c_master_instance_t *) g_comms_i2c_bus0_extended_cfg.p_driver_instance;
 
     g_comms_i2c_bus0_quick_shutdown();
+
+    R_IIC_MASTER_StatusGet(p_driver_instance->p_ctrl, &status);
+
+    if (status.open != false){
+        err = FSP_ERR_IN_USE;
+    }
 
     return (int)err;
 }

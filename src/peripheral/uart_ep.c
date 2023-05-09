@@ -39,7 +39,6 @@
 /* Temporary buffer to save data from receive buffer for further processing */
 static uint8_t g_temp_buffer[UART_RX_BUFFER_SIZE] = {RESET_VALUE};
 
-
 /* Flag to check whether data is received or not */
 //static volatile uint8_t g_data_received_flag = false;
 
@@ -135,10 +134,12 @@ fsp_err_t uart_print_user_msg(uint8_t *p_msg)
 }
 
 /**
+ * @brief Returns the local rx uart buffer only if reception is complete (ie received a '\r\n') or if inference is running (just care of 'b')
  *
+ * @param is_inference_running
  * @return
  */
-char uart_get_rx_data(void)
+char uart_get_rx_data(uint8_t is_inference_running)
 {
     char ret_val = -1;
 
@@ -159,6 +160,20 @@ char uart_get_rx_data(void)
         {
             g_rx_index = 0;
             g_uart_rx_read_index = 0;
+        }
+    }
+    else if (is_inference_running)
+    {
+        /* need to check if any 'b' */
+        uint16_t i;
+
+        for (i = g_uart_rx_read_index; i< g_rx_index; i ++)
+        {
+            if (g_temp_buffer[i] == 'b')
+            {
+                ret_val = 'b';
+                break;
+            }
         }
     }
 

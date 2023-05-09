@@ -30,6 +30,7 @@ Toolchain ARM GCC 10.3.2021
 1. Unpack FSP 3.5.0 in the directory ofe2studio looks for. It's OS depentand, can be checked from Help->CMSIS Packs Management->Renesas RA->Show in System Explorer. Go up to \internal folder and here the zip can be unpacked.
 1. Verify that the toolchain is present checking in Help->Add Renesas Toolchains. If not, download the one for your OS and add it here.
 1. Clone this repo and then import in e2studio: File->Import->General->Existing Projects into Workspace and then browse for the project.
+1. Generate the code for peripherls: open the configuration.xml file (double click on it) then click on "Generate Project Content".
 1. To build the project: Project->Build All
 
 ### Build with docker

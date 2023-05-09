@@ -22,6 +22,7 @@
 /** Include ----------------------------------------------------------------- */
 #include <renesas-ck-ra6m5/ei_device_renesas_ck_ra6m5.h>
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
+#include "firmware-sdk/ei_fusion.h"
 #include "peripheral/uart_ep.h"
 #include "peripheral/flash_handler.h"
 #include "peripheral/timer_handler.h"
@@ -31,10 +32,11 @@
 #include "sensors/ei_air_quality_outdoor.h"
 
 /* Constants --------------------------------------------------------------- */
+const ei_device_data_output_baudrate_t ei_dev_normal_data_output_baudrate = {
+    "115200",
+    115200,
+};
 
-static EiFlashMemory code_memory(e_flash_code, sizeof(EiConfig));
-static EiFlashMemory data_memory(e_flash_data, 0);                  /* code flash doesn't store config !*/
-static EiDeviceCKRA6M5 EiDevice(&code_memory, &data_memory);
 /** Private function declarations ------------------------------------------- */
 
 /** Public functions ------------------------------------------- */
@@ -46,23 +48,19 @@ EiDeviceCKRA6M5::EiDeviceCKRA6M5(EiDeviceMemory* code_flash, EiDeviceMemory* dat
     EiDeviceInfo::memory = code_flash;
     EiDeviceCKRA6M5::data_flash = data_flash_to_set;
 
+#if MULTI_FREQ_ENABLED == 1
+    fusioning = 1;
+#endif
+
     device_type = "RENESAS_CK_RA6M5";
     init_device_id();   // set ID
 
     load_config();
 
-    sensors[ACCELEROMETER].name = "Accelerometer";
-    sensors[ACCELEROMETER].start_sampling_cb = &ei_intertial_accel_setup_data_sampling;
-    sensors[ACCELEROMETER].max_sample_length_s = (uint16_t)(code_flash->get_available_sample_bytes()/(20*SIZEOF_ACCEL_AXIS_SAMPLED));
-    sensors[ACCELEROMETER].frequencies[0] = 20.0;
-    sensors[ACCELEROMETER].frequencies[1] = 62.5;
-    sensors[ACCELEROMETER].frequencies[2] = 100.0;
-
     sensors[MICROPHONE].name = "Microphone";
     sensors[MICROPHONE].frequencies[0] = 16000.0f;
     sensors[MICROPHONE].start_sampling_cb = &ei_microphone_sample_start;
     sensors[MICROPHONE].max_sample_length_s = (uint16_t)(code_flash->get_available_sample_bytes() / (16000 * sizeof(microphone_sample_t)));
-
 }
 
 EiDeviceCKRA6M5::~EiDeviceCKRA6M5()
@@ -77,30 +75,12 @@ EiDeviceCKRA6M5::~EiDeviceCKRA6M5()
  */
 EiDeviceInfo* EiDeviceInfo::get_device(void)
 {
-//    static EiFlashMemory code_memory(e_flash_code, sizeof(EiConfig));
-//    static EiFlashMemory data_memory(e_flash_data, 0);                  /* code flash doesn't store config !*/
-//    static EiDeviceCKRA6M5 dev(&code_memory, &data_memory);
+    static EiFlashMemory code_memory(e_flash_code, sizeof(EiConfig));
+    static EiFlashMemory data_memory(e_flash_data, 0);                  /* code flash doesn't store config !*/
+    static EiDeviceCKRA6M5 dev(&code_memory, &data_memory);
 
-    return &EiDevice;
-//    return &dev;
+    return &dev;
 }
-
-/**
- * @brief Singleton class
- *
- * @return pointer to class
- */
-#if 1
-EiDeviceCKRA6M5* EiDeviceCKRA6M5::get_device(void)
-{
-//    static EiFlashMemory code_memory(e_flash_code, sizeof(EiConfig));
-//    static EiFlashMemory data_memory(e_flash_data, 0);                  /* code flash doesn't store config !*/
-//    static EiDeviceCKRA6M5 dev(&code_memory, &data_memory);
-
-    return &EiDevice;
-//    return &dev;
-}
-#endif
 
 /**
  *
@@ -123,17 +103,7 @@ bool EiDeviceCKRA6M5::get_sensor_list(const ei_device_sensor_t **sensor_list, si
  */
 uint32_t EiDeviceCKRA6M5::get_data_output_baudrate(void)
 {
-    return 112500;
-}
-
-void EiDeviceCKRA6M5::set_default_data_output_baudrate(void)
-{
-
-}
-
-void EiDeviceCKRA6M5::set_max_data_output_baudrate(void)
-{
-
+    return ei_dev_normal_data_output_baudrate.val;
 }
 
 /**
@@ -200,10 +170,6 @@ void EiDeviceCKRA6M5::copy_device_info(char* char_device_id, char* char_device_t
     std::strcpy(char_device_type, device_type.c_str());
 }
 
-//EiDeviceCKRA6M5* EiDeviceCKRA6M5::get_device()
-//{
-//    return &EiDevice;
-//}
 /**
  *
  */
@@ -282,9 +248,11 @@ bool EiDeviceCKRA6M5::start_sample_thread(void (*sample_read_cb)(void), float sa
 {
     this->is_sampling = true;
     this->sample_read_callback = sample_read_cb;
-    this->sample_interval = sample_interval_ms;
+    this->sample_interval_ms = sample_interval_ms;
+    this->actual_timer = 0;
+    this->fusioning = 1;        //
 
-    ei_timer1_start((uint32_t)this->sample_interval);
+    ei_timer1_start((uint32_t)this->sample_interval_ms);
 
     return true;
 }
@@ -296,6 +264,7 @@ bool EiDeviceCKRA6M5::start_sample_thread(void (*sample_read_cb)(void), float sa
 bool EiDeviceCKRA6M5::stop_sample_thread(void)
 {
     this->is_sampling = false;
+
     ei_timer1_stop();
 
     return true;
@@ -306,6 +275,50 @@ bool EiDeviceCKRA6M5::stop_sample_thread(void)
  */
 void EiDeviceCKRA6M5::sample_thread(void)
 {
+#if MULTI_FREQ_ENABLED == 1    
+    if (this->fusioning == 1){
+        if (_timer_1_set == true)
+        {
+            ei_timer1_stop();
+            if (this->sample_read_callback != nullptr)
+            {
+                this->sample_read_callback();
+
+                if (this->is_sampling == true)
+                {
+                    ei_timer1_start((uint32_t)this->sample_interval_ms);
+                }
+            }
+        }
+    }
+    else{
+        uint8_t flag = 0;
+        uint8_t i = 0;
+
+        this->actual_timer += (uint32_t)this->sample_interval;
+
+        if (_timer_1_set == true)
+        {
+            ei_timer1_stop();
+
+            for (i = 0; i < this->fusioning; i++){
+                if (((uint32_t)(this->actual_timer % (uint32_t)this->multi_sample_interval[i])) == 0) {
+                    flag |= (1<<i);
+                }
+            }
+
+            if (this->sample_multi_read_callback != nullptr)
+            {
+                this->sample_multi_read_callback(flag);
+
+                if (this->is_sampling == true)
+                {
+                    ei_timer1_start((uint32_t)this->sample_interval);
+                }
+            }
+        }
+    }
+#else
     if (_timer_1_set == true)
     {
         ei_timer1_stop();
@@ -315,11 +328,52 @@ void EiDeviceCKRA6M5::sample_thread(void)
 
             if (this->is_sampling == true)
             {
-                ei_timer1_start((uint32_t)this->sample_interval);
+                ei_timer1_start((uint32_t)this->sample_interval_ms);
             }
         }
-    }
+    } 
+
+#endif
+
 }
+
+#if MULTI_FREQ_ENABLED == 1
+/**
+ *
+ * @param sample_read_cb
+ * @param multi_sample_interval_ms
+ * @param num_fusioned
+ * @return
+ */
+bool EiDeviceCKRA6M5::start_multi_sample_thread(void (*sample_multi_read_cb)(uint8_t), float* multi_sample_interval_ms, uint8_t num_fusioned)
+{
+    uint8_t i;
+    uint8_t flag = 0;
+
+    this->is_sampling = true;
+    this->sample_multi_read_callback = sample_multi_read_cb;
+    this->fusioning = num_fusioned;
+
+    this->multi_sample_interval.clear();
+
+    for (i = 0; i < num_fusioned; i++){
+        this->multi_sample_interval.push_back(1.f/multi_sample_interval_ms[i]*1000.f);
+    }
+
+    this->sample_interval = ei_fusion_calc_multi_gcd(this->multi_sample_interval.data(), this->fusioning);
+
+    /* force first reading */
+    for (i = 0; i < this->fusioning; i++){
+            flag |= (1<<i);
+    }
+    this->sample_multi_read_callback(flag);
+
+    this->actual_timer = 0;
+    ei_timer1_start((uint32_t)this->sample_interval);
+
+    return true;
+}
+#endif
 
 /**
  *
@@ -357,26 +411,25 @@ bool EiDeviceCKRA6M5::is_warmup_required(void)
     return this->warmup_required;
 }
 
+/**
+ * @brief
+ *
+ * @return
+ */
 uint32_t EiDeviceCKRA6M5::get_warmup_time(void)
 {
     return this->warmup_time;
 }
-/**
- *
- * @return
- */
-char ei_get_serial_byte(void)
-{
-    return uart_get_rx_data();
-}
 
 /**
+ * @brief Returns char from uart rx buffer
  *
- * @param c
+ * @param is_inference_running If inference is running, we need to check for a single 'b'
+ * @return
  */
-void ei_putchar(char c)
+char ei_get_serial_byte(uint8_t is_inference_running)
 {
-    ei_printf("%c", c);
+    return uart_get_rx_data(is_inference_running);
 }
 
 /** Private function definition ------------------------------------------- */

@@ -26,6 +26,7 @@
 #include <renesas-ck-ra6m5/ei_memory_ck_ra6m5.h>
 #include "ei_device_info_lib.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
+#include "ei_fusion_sensors_config.h"
 
 /** Baud rates */
 #define DEFAULT_BAUD 115200
@@ -37,25 +38,21 @@
 /** Sensors */
 typedef enum
 {
-    ACCELEROMETER   = 0,
-    MICROPHONE      = 1,
+    MICROPHONE      = 0,
 }used_sensors_t;
 
-/** Number of sensors used */
-#define EI_DEVICE_N_SENSORS            2
-//#define EI_MAX_FREQUENCIES             5
-
+/** Number of sensors used without sensor fusioning */
+#define EI_DEVICE_N_SENSORS            1    /* just the microphone */
 
 class EiDeviceCKRA6M5: public EiDeviceInfo {
 private:
     EiDeviceCKRA6M5() = delete;
     ei_device_sensor_t sensors[EI_DEVICE_N_SENSORS];
     EiDeviceMemory *data_flash;
-    float sample_interval;
-    bool is_sampling;
     bool warmup_required;
     uint32_t warmup_time;
-
+    bool is_sampling;
+    
 public:
     EiDeviceCKRA6M5(EiDeviceMemory* code_flash, EiDeviceMemory* data_flash_to_set);
     ~EiDeviceCKRA6M5();
@@ -68,8 +65,6 @@ public:
     void clear_config(void);
     void init_device_id(void);
     uint32_t get_data_output_baudrate(void);
-    void set_default_data_output_baudrate(void);
-    void set_max_data_output_baudrate(void);
     bool get_sensor_list(const ei_device_sensor_t **sensor_list, size_t *sensor_list_size);
     bool save_config(void);
     void load_config(void);
@@ -79,18 +74,19 @@ public:
     void copy_device_info(char* device_id, char* device_type);
 
     void (*sample_read_callback)(void);
+    void (*sample_multi_read_callback)(uint8_t);
     bool start_sample_thread(void (*sample_read_cb)(void), float sample_interval_ms) override;
     bool stop_sample_thread(void) override;
-    void sample_thread(void);
 
-    static EiDeviceCKRA6M5 *get_device(void);
+#if MULTI_FREQ_ENABLED == 1
+    bool start_multi_sample_thread(void (*sample_multi_read_cb)(uint8_t), float* multi_sample_interval_ms, uint8_t num_fusioned) override;
+#endif
+
+    void sample_thread(void);
 };
 
 /* Function prototypes ----------------------------------------------------- */
-extern char ei_get_serial_byte(void);
+extern char ei_get_serial_byte(uint8_t is_inference_running);
 
-
-/* Reference to object for external usage ---------------------------------- */
-//extern EiDeviceEKRA65 EiDevice;
 
 #endif /* INGESTION_SDK_PLATFORM_RENESAS_CK_RA6M5_EI_DEVICE_RENESAS_CK_RA6M5_H_ */

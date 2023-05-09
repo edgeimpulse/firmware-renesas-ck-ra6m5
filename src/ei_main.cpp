@@ -27,6 +27,8 @@
 #include "peripheral/timer_handler.h"
 #include "peripheral/i2c.h"
 #include "peripheral/i2s.h"
+#include "peripheral/spi.h"
+#include "sensors/ei_inertial_bmx055_sensor.h"
 #include "sensors/ei_inertial_sensor.h"
 #include "sensors/ei_microphone.h"
 #include "sensors/ei_air_quality_indoor.h"
@@ -52,7 +54,7 @@ EiDeviceCKRA6M5* p_dev;
  */
 int ei_init(void)
 {
-    p_dev = EiDeviceCKRA6M5::get_device();
+    p_dev = static_cast<EiDeviceCKRA6M5*>(EiDeviceInfo::get_device());
 
     /* turns off user led - init of GPIO is already done */
     ei_led_turn_off(e_user_led_blue);
@@ -65,6 +67,9 @@ int ei_init(void)
 
     /* init i2c */
     ei_i2c_init();
+
+    /* init spi */
+    ei_spi_init();
 
     /* init i2s */
     ei_i2s_driver_init();
@@ -97,10 +102,19 @@ int ei_main(void)
     at->print_prompt();
 
     /* sensors init */
-    ei_inertial_init();
+    if (ei_inertial_bmx_init() == false){
+        ei_spi_deinit();    // can de init SPI, only BMX uses it
+        // bmx055 not present, use the old one
+        ei_inertial_init();
+    }
+
     ei_environmental_sensor_init();
+#if EI_AIR_QUALITY_INDOOR_ENABLED == 1
     ei_air_quality_indoor_sensor_init();
+#endif
+#if EI_AIR_QUALITY_OUTDOOR_ENABLED == 1
     ei_air_quality_outdoor_sensor_init();
+#endif
     ei_barometric_sensor_init();
 
     /* debug sensors, remove ! */
@@ -112,7 +126,7 @@ int ei_main(void)
     while(1)
     {
         /* handle command comming from uart */
-        char data = ei_get_serial_byte();
+        char data = ei_get_serial_byte((uint8_t)is_inference_running());
 
         while ((uint8_t)data != 0xFF) {
             ei_led_turn_on(e_user_led_blue);
@@ -124,7 +138,7 @@ int ei_main(void)
             }
 
             at->handle(data);
-            data = ei_get_serial_byte();
+            data = ei_get_serial_byte((uint8_t)is_inference_running());
         }
         ei_led_turn_off(e_user_led_blue);
 

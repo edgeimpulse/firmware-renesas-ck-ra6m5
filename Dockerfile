@@ -60,7 +60,7 @@ RUN mkdir -p /app/scripts && \
 # Remove any packs that may have been installed through platform installer. We will install based on ENV_FSP_RELEASE.
 # Generate .eclipse/com.renesas.platform_<random> directory so we can install FSP to it.
 # The || true is on the end because this call will currently fail
-ENV ENV_FSP_PACK_VERSION=v3.5.0
+ENV ENV_FSP_PACK_VERSION=v4.1.0
 RUN rm -rf /opt/e2studio/internal && \
     rm -rf /root/.eclipse && \
     /usr/bin/e2studio --launcher.suppressErrors -nosplash -application org.eclipse.ease.runScript -data ${ENV_E2STUDIO_DEFAULT_WS} -script /app/scripts/minimum_ease.py -clean || true && \

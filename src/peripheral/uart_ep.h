@@ -42,7 +42,7 @@ fsp_err_t uart_ep_demo(void);
 fsp_err_t uart_print_user_msg(uint8_t *p_msg);
 fsp_err_t uart_initialize(void);
 void deinit_uart(void);
-char uart_get_rx_data(void);
+char uart_get_rx_data(uint8_t is_inference_running);
 
 FSP_FOOTER
 

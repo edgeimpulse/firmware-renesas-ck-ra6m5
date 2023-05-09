@@ -9,7 +9,7 @@
     <option key="#DeviceCommand#" value="R7FA6M5BH"/>
     <option key="#RTOS#" value="_none"/>
     <option key="#pinconfiguration#" value="R7FA6M5BH3CFC.pincfg"/>
-    <option key="#FSPVersion#" value="3.5.0"/>
+    <option key="#FSPVersion#" value="4.1.0"/>
     <option key="#SELECTED_TOOLCHAIN#" value="gcc-arm-embedded"/>
     <option key="#ToolchainVersion#" value="10.3.1.20210824"/>
   </generalSettings>
@@ -64,14 +64,22 @@
       <configSetting altId="debug0.swdio.p108" configurationId="debug0.swdio" isUsedByDriver="true"/>
       <configSetting altId="iic0.scl.p400" configurationId="iic0.scl" isUsedByDriver="true"/>
       <configSetting altId="iic0.sda.p401" configurationId="iic0.sda" isUsedByDriver="true"/>
+      <configSetting altId="p205.output.high" configurationId="p205"/>
+      <configSetting altId="p206.output.high" configurationId="p206"/>
+      <configSetting altId="p207.output.high" configurationId="p207"/>
       <configSetting altId="p601.output.low" configurationId="p601"/>
       <configSetting altId="p602.output.low" configurationId="p602"/>
       <configSetting altId="p603.output.low" configurationId="p603"/>
       <configSetting altId="p605.output.low" configurationId="p605"/>
       <configSetting altId="p609.output.low" configurationId="p609"/>
       <configSetting altId="p610.output.low" configurationId="p610"/>
-      <configSetting altId="sci3.rxd.p706" configurationId="sci3.rxd" isUsedByDriver="true"/>
-      <configSetting altId="sci3.txd.p707" configurationId="sci3.txd" isUsedByDriver="true"/>
+      <configSetting altId="sci3.rxd.p706" configurationId="sci3.rxd"/>
+      <configSetting altId="sci3.txd.p707" configurationId="sci3.txd"/>
+      <configSetting altId="sci5.rxd.p502" configurationId="sci5.rxd" isUsedByDriver="true"/>
+      <configSetting altId="sci5.txd.p501" configurationId="sci5.txd" isUsedByDriver="true"/>
+      <configSetting altId="spi0.miso.p202" configurationId="spi0.miso" isUsedByDriver="true"/>
+      <configSetting altId="spi0.mosi.p203" configurationId="spi0.mosi" isUsedByDriver="true"/>
+      <configSetting altId="spi0.rspck.p204" configurationId="spi0.rspck" isUsedByDriver="true"/>
       <configSetting altId="ssi0.ssirxd.p114" configurationId="ssi0.ssirxd" isUsedByDriver="true"/>
       <configSetting altId="ssi0.ssisck.p112" configurationId="ssi0.ssisck" isUsedByDriver="true"/>
       <configSetting altId="ssi0.ssiws.p113" configurationId="ssi0.ssiws" isUsedByDriver="true"/>
