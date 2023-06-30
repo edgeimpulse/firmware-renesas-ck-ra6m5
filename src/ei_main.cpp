@@ -35,6 +35,7 @@
 #include "sensors/ei_air_quality_outdoor.h"
 #include "sensors/ei_environmental.h"
 #include "sensors/ei_barometric_sensor.h"
+#include "sensors/ei_adc.h"
 
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include "ingestion-sdk-platform/renesas-ck-ra6m5/ei_device_renesas_ck_ra6m5.h"
@@ -73,6 +74,9 @@ int ei_init(void)
 
     /* init i2s */
     ei_i2s_driver_init();
+
+    /* ADC */
+    ei_adc_init();
 
     if (uart_initialize() == FSP_SUCCESS)  /* for now not checking ret value */
     {

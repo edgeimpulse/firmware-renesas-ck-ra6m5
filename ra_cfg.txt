@@ -102,7 +102,7 @@ FSP Configuration
       AVCCUSBHS 26 USB_HS0_AVCC_USBHS - - - - - - - - IO "Read only" - 
       AVSS0 156 ANALOG0_AVSS0 - - - - - - - - IO "Read only" - 
       AVSSUSBHS 28 USB_HS0_AVSS_USBHS - - - - - - - - IO "Read only" - 
-      P000 169 - - - - Disabled - - "ADC0: AN000; ADC1: AN100; ICU0: IRQ06" - None - - 
+      P000 169 ADC0_AN000 - - - "Analog mode" - None "ADC0: AN000; ADC1: AN100; ICU0: IRQ06" - IO - - 
       P001 168 - - - - Disabled - - "ADC0: AN001; ADC1: AN101; ICU0: IRQ07" - None - - 
       P002 167 - - - - Disabled - - "ADC0: AN002; ADC1: AN102; ICU0: IRQ08" - None - - 
       P003 166 - - - - Disabled - - "ADC0: AN003" - None - - 
@@ -333,6 +333,9 @@ FSP Configuration
     Parameter Checking: Default (BSP)
     Enable Support for using a transfer API: Enabled
     Enable Transmitting from RXI Interrupt: Disabled
+    
+  Module "ADC (r_adc)"
+    Parameter Checking: Default (BSP)
     
   HAL
     Instance "g_ioport I/O Port (r_ioport)"
@@ -781,3 +784,40 @@ FSP Configuration
         Number of Blocks (Valid only in Block Mode): 0
         Activation Source: SPI0 RXI (Receive buffer full)
         
+    Instance "g_adc0 ADC (r_adc)"
+      General: Name: g_adc0
+      General: Unit: 0
+      General: Resolution: 12-Bit
+      General: Alignment: Right
+      General: Clear after read: On
+      General: Mode: Single Scan
+      General: Double-trigger: Disabled
+      Input: Channel Scan Mask (channel availability varies by MCU): Channel 0
+      Input: Group B Scan Mask (channel availability varies by MCU): 
+      Interrupts: Normal/Group A Trigger: Software
+      Interrupts: Group B Trigger: Disabled
+      Interrupts: Group Priority (Valid only in Group Scan Mode): Group A cannot interrupt Group B
+      Input: Add/Average Count: Disabled
+      Input: Reference Voltage control: VREFH0/VREFH
+      Input: Addition/Averaging Mask (channel availability varies by MCU and unit): 
+      Input: Sample and Hold: Sample and Hold Channels (Available only on selected MCUs): 
+      Input: Sample and Hold: Sample Hold States (Applies only to channels 0, 1, 2): 24
+      Input: Window Compare: Window Mode: Disabled
+      Input: Window Compare: Event Output: OR
+      Input: Window Compare: Window A: Enable: Disabled
+      Input: Window Compare: Window A: Channels to compare (channel availability varies by MCU and unit): 
+      Input: Window Compare: Window A: Channel comparison mode (channel availability varies by MCU and unit): 
+      Input: Window Compare: Window A: Lower Reference: 0
+      Input: Window Compare: Window A: Upper Reference: 0
+      Input: Window Compare: Window B: Enable: Disabled
+      Input: Window Compare: Window B: Channel to compare (channel availability varies by MCU and unit): Channel 0
+      Input: Window Compare: Window B: Comparison mode: Less Than or Outside Window
+      Input: Window Compare: Window B: Lower Reference: 0
+      Input: Window Compare: Window B: Upper Reference: 0
+      Interrupts: Callback: adc_callback
+      Interrupts: Scan End Interrupt Priority: Priority 10
+      Interrupts: Scan End Group B Interrupt Priority: Disabled
+      Interrupts: Window Compare A Interrupt Priority: Disabled
+      Interrupts: Window Compare B Interrupt Priority: Disabled
+      Extra: ADC Ring Buffer: Disabled
+      

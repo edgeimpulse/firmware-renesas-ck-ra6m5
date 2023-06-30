@@ -60,6 +60,7 @@
   <raModuleConfiguration/>
   <raPinConfiguration>
     <pincfg active="true" name="" symbol="">
+      <configSetting altId="adc0.an00.p000" configurationId="adc0.an00" isUsedByDriver="true"/>
       <configSetting altId="debug0.swclk.p300" configurationId="debug0.swclk" isUsedByDriver="true"/>
       <configSetting altId="debug0.swdio.p108" configurationId="debug0.swdio" isUsedByDriver="true"/>
       <configSetting altId="iic0.scl.p400" configurationId="iic0.scl" isUsedByDriver="true"/>
