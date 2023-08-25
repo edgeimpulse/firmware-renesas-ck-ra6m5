@@ -22,12 +22,18 @@
 /* Includes */
 #include "timer_handler.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
-
 #include <stdint.h>
 
+#define MICROSECONDS_TO_SECONDS 1000000
 
-static volatile uint64_t _ms_time = 0;
+static uint64_t timer_overflow_times;
+static uint64_t div_ratio = 0;
+
 volatile bool _timer_1_set = false;
+
+static inline void set_timer_overflow_times(uint64_t value);
+static inline uint64_t get_timer_overflow_times(void);
+static inline uint64_t get_timer_count(void);
 
 /* public functions */
 /**
@@ -36,15 +42,19 @@ volatile bool _timer_1_set = false;
 void ei_timer_init(void)
 {
     fsp_err_t err = FSP_SUCCESS;
+    timer_info_t info;
 
-    err = R_GPT_Open (&g_timer0_ctrl, &g_timer0_cfg);
+    err = R_GPT_Open (&g_timer_us_ctrl, &g_timer_us_cfg);
     err &= R_GPT_Open (&g_timer1_ctrl, &g_timer1_cfg);
 
-    if (FSP_SUCCESS != err)
-    {
+    if (FSP_SUCCESS != err) {
         /* GPT Timer failure message */
         APP_ERR_PRINT ("\r\n** R_GPT_TimerOpen API failed **\r\n");
     }
+
+    (void) R_GPT_InfoGet(&g_timer_us_ctrl, &info);
+
+    div_ratio = (info.clock_frequency / MICROSECONDS_TO_SECONDS);
 }
 
 /**
@@ -55,9 +65,8 @@ void ei_timer0_start(void)
     fsp_err_t err = FSP_SUCCESS;
 
     /* Start GPT module - no error control for now */
-    err = R_GPT_Start (&g_timer0_ctrl);
-
-    _ms_time = 0;
+    err = R_GPT_Start (&g_timer_us_ctrl);
+    set_timer_overflow_times(0);
 }
 
 /**
@@ -96,9 +105,7 @@ void ei_timer0_stop(void)
     fsp_err_t err = FSP_SUCCESS;
 
     /* Stop GPT module - no error control for now */
-    err =  R_GPT_Stop (&g_timer0_ctrl);
-
-    _ms_time = 0;
+    err =  R_GPT_Stop (&g_timer_us_ctrl);
 }
 
 /**
@@ -118,9 +125,9 @@ void ei_timer1_stop(void)
  */
 void periodic_timer_msgq_cb(timer_callback_args_t *p_args)
 {
-    FSP_PARAMETER_NOT_USED (p_args);
-
-    _ms_time++;
+    if (TIMER_EVENT_CYCLE_END == p_args->event) {
+        set_timer_overflow_times(get_timer_overflow_times() + 1);
+    }
 }
 
 /**
@@ -138,7 +145,48 @@ void timer1_interrupt(timer_callback_args_t *p_args)
  *
  * @return
  */
-uint64_t timer_get_ms(void)
+uint32_t timer_get_ms(void)
 {
-    return _ms_time;
+    return (timer_get_us()/1000u);
 }
+
+/**
+ *
+ * @return
+ */
+uint32_t timer_get_us(void)
+{
+    uint64_t overflow_time = ((uint64_t)1 << 32) / div_ratio;
+    return (uint32_t)((get_timer_overflow_times() * overflow_time)
+         + (get_timer_count()/div_ratio));
+}
+
+/**
+ *
+ * @param value
+ */
+static inline void set_timer_overflow_times(uint64_t value)
+{
+    timer_overflow_times = value;
+}
+
+/**
+ *
+ * @return
+ */
+static inline uint64_t get_timer_overflow_times(void)
+{
+    return timer_overflow_times;
+}
+
+/**
+ *
+ * @return
+ */
+static inline uint64_t get_timer_count(void)
+{
+    timer_status_t status;
+    R_GPT_StatusGet(&g_timer_us_ctrl, &status);
+    return status.counter;
+}
+

@@ -34,7 +34,8 @@ extern void ei_timer0_start(void);
 extern void ei_timer1_start(uint32_t count);
 extern void ei_timer0_stop(void);
 extern void ei_timer1_stop(void);
-extern uint64_t timer_get_ms(void);
+extern uint32_t timer_get_ms(void);
+extern uint32_t timer_get_us(void);
 
 FSP_CPP_FOOTER
 

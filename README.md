@@ -11,12 +11,12 @@ Edge Impulse enables developers to create the next generation of intelligent dev
 
 ### Software
 * [Renesas e2studio](https://www.renesas.com/us/en/software-tool/e-studio)
-* [Renesas FSP 3.5.0](https://github.com/renesas/fsp/releases/tag/v3.5.0)
+* [Renesas FSP 4.2.0](https://github.com/renesas/fsp/releases/tag/v4.2.0)
 * [GNU Arm Embedded Toolchain 10.3.2021](https://developer.arm.com/downloads/-/gnu-rm)
 * [Segger JLink software pack](https://www.segger.com/downloads/jlink)
 * [Edge Impulse CLI](https://docs.edgeimpulse.com/docs/cli-installation)
 
-Project created with e2studio v22.1.0 using FSP 3.5.0
+Project created with e2studio v22.1.0 using FSP 4.2.0
 
 Toolchain ARM GCC 10.3.2021
 

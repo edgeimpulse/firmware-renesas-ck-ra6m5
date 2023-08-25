@@ -30,7 +30,6 @@
 
 /** Baud rates */
 #define DEFAULT_BAUD 115200
-#define MAX_BAUD     921600
 
 /** Max size for device id array */
 #define EI_DEVICE_ID_MAX_SIZE 32

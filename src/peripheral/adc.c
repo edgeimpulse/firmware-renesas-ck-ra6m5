@@ -35,7 +35,7 @@ uint32_t adc_init(void)
 {
     fsp_err_t err = FSP_SUCCESS;
 
-    err = R_ADC_Open (&g_adc0_ctrl, &g_adc0_cfg);
+    err = R_ADC_Open (&g_adc_ctrl, &g_adc_cfg);
 
     return (uint32_t)err;
 }
@@ -48,7 +48,7 @@ uint32_t adc_deinit(void)
 {
     fsp_err_t err = FSP_SUCCESS;
 
-    err = R_ADC_Close(&g_adc0_ctrl);
+    err = R_ADC_Close(&g_adc_ctrl);
 
     return (uint32_t)err;
 }
@@ -61,7 +61,7 @@ uint32_t adc_start_scan(void)
 {
     fsp_err_t err = FSP_SUCCESS;
 
-    err = R_ADC_ScanCfg (&g_adc0_ctrl, &g_adc0_channel_cfg);
+    err = R_ADC_ScanCfg (&g_adc_ctrl, &g_adc_channel_cfg);
     /* handle error */
     if (FSP_SUCCESS != err)
     {
@@ -70,7 +70,7 @@ uint32_t adc_start_scan(void)
 
     /* Start the ADC scan*/
     b_scan_ended = false;
-    err = R_ADC_ScanStart (&g_adc0_ctrl);
+    err = R_ADC_ScanStart (&g_adc_ctrl);
     b_ready_to_read = true;
 
     return (uint32_t)err;
@@ -85,9 +85,9 @@ uint32_t adc_stop_scan(void)
     fsp_err_t err = FSP_SUCCESS;
 
     // if we run in single scan, this is not needed.
-    if((ADC_MODE_SINGLE_SCAN != g_adc0_cfg.mode) && (true == b_ready_to_read ))
+    if((ADC_MODE_SINGLE_SCAN != g_adc_cfg.mode) && (true == b_ready_to_read ))
     {
-        err = R_ADC_ScanStop (&g_adc0_ctrl);
+        err = R_ADC_ScanStop (&g_adc_ctrl);
         /* handle error */
         if (FSP_SUCCESS != err) {
             /* ADC Failure message */
@@ -120,9 +120,9 @@ uint32_t adc_read(uint16_t* adc_reading)
             // exit strategy maybe ?
         };
 
-        err = R_ADC_Read (&g_adc0_ctrl, ADC_CHANNEL_0, adc_reading);
+        err = R_ADC_Read (&g_adc_ctrl, ADC_CHANNEL_0, adc_reading);
         // i have to close ?
-        if (ADC_MODE_SINGLE_SCAN == g_adc0_cfg.mode) {
+        if (ADC_MODE_SINGLE_SCAN == g_adc_cfg.mode) {
             b_ready_to_read = false;    // unvalidate
         }
     }

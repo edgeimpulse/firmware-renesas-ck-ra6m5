@@ -17,7 +17,7 @@ RUN apt-get update && apt-get -y --fix-missing --no-install-recommends install \
 
 # Variables that should not be changing per release of FSP
 ENV ENV_E2STUDIO_DEFAULT_WS=/app/workspace
-ENV ENV_E2STUDIO_INSTALLER=e2studio_installer-2022-01_linux_host.run
+ENV ENV_E2STUDIO_INSTALLER=e2studio_installer-2023-04_linux_host.run
 
 # Download and install e2 studio.
 # Remove -clean and -removeClean lines from e2studio.ini. These options are only needed for ugprades to install language packs.
@@ -60,7 +60,7 @@ RUN mkdir -p /app/scripts && \
 # Remove any packs that may have been installed through platform installer. We will install based on ENV_FSP_RELEASE.
 # Generate .eclipse/com.renesas.platform_<random> directory so we can install FSP to it.
 # The || true is on the end because this call will currently fail
-ENV ENV_FSP_PACK_VERSION=v4.1.0
+ENV ENV_FSP_PACK_VERSION=v4.2.0
 RUN rm -rf /opt/e2studio/internal && \
     rm -rf /root/.eclipse && \
     /usr/bin/e2studio --launcher.suppressErrors -nosplash -application org.eclipse.ease.runScript -data ${ENV_E2STUDIO_DEFAULT_WS} -script /app/scripts/minimum_ease.py -clean || true && \
