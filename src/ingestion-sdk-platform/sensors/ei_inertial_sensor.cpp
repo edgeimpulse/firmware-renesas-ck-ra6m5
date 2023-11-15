@@ -19,7 +19,7 @@
 #include "peripheral/timer_handler.h"
 #include "ingestion-sdk-platform/renesas-ck-ra6m5/ei_device_renesas_ck_ra6m5.h"
 #include "ingestion-sdk/ei_sampler.h"
-#include "firmware-sdk/sensor_aq.h"
+#include "firmware-sdk/sensor-aq/sensor_aq.h"
 #include "firmware-sdk/ei_device_info_lib.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include <math.h>

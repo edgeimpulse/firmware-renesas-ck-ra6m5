@@ -22,7 +22,7 @@
 /* Include ----------------------------------------------------------------- */
 #include "ei_sampler.h"
 #include "sensor_aq_mbedtls_hs256.h"
-#include "sensor_aq.h"
+#include "firmware-sdk/sensor-aq/sensor_aq.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include "ingestion-sdk-platform/renesas-ck-ra6m5/ei_device_renesas_ck_ra6m5.h"
 #include "peripheral/timer_handler.h"

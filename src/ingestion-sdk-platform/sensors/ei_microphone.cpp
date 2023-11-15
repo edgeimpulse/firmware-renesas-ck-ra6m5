@@ -21,7 +21,7 @@
 #include "ingestion-sdk/sensor_aq_mbedtls_hs256.h"
 #include "ingestion-sdk/ei_sampler.h"
 #include "firmware-sdk/ei_device_info_lib.h"
-#include "firmware-sdk/sensor_aq.h"
+#include "firmware-sdk/sensor-aq/sensor_aq.h"
 #include "edge-impulse-sdk/dsp/numpy.hpp"
 
 #include "ei_dc_blocking.h"
