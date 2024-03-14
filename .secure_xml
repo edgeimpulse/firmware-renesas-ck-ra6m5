@@ -80,10 +80,8 @@
       <configSetting altId="p605.output.low" configurationId="p605"/>
       <configSetting altId="p609.output.low" configurationId="p609"/>
       <configSetting altId="p610.output.low" configurationId="p610"/>
-      <configSetting altId="sci3.rxd.p706" configurationId="sci3.rxd"/>
-      <configSetting altId="sci3.txd.p707" configurationId="sci3.txd"/>
-      <configSetting altId="sci5.rxd.p502" configurationId="sci5.rxd" isUsedByDriver="true"/>
-      <configSetting altId="sci5.txd.p501" configurationId="sci5.txd" isUsedByDriver="true"/>
+      <configSetting altId="sci3.rxd.p706" configurationId="sci3.rxd" isUsedByDriver="true"/>
+      <configSetting altId="sci3.txd.p707" configurationId="sci3.txd" isUsedByDriver="true"/>
       <configSetting altId="spi0.miso.p202" configurationId="spi0.miso" isUsedByDriver="true"/>
       <configSetting altId="spi0.mosi.p203" configurationId="spi0.mosi" isUsedByDriver="true"/>
       <configSetting altId="spi0.rspck.p204" configurationId="spi0.rspck" isUsedByDriver="true"/>

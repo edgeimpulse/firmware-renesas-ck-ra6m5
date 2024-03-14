@@ -50,6 +50,7 @@ static volatile uint8_t g_uart_rx_completed = false;
 
 /* Flag TX completed */
 static volatile uint8_t g_uart_tx_completed = false;
+static volatile uint8_t g_uart_tx_empty = true;
 
 /* Flag error occurred */
 static volatile uint8_t g_uart_error = false;
@@ -79,58 +80,46 @@ fsp_err_t uart_initialize(void)
     return err;
 }
 
-/*****************************************************************************************************************
- *  @brief       print user message to terminal
- *  @param[in]   p_msg
- *  @retval      FSP_SUCCESS                Upon success
- *  @retval      FSP_ERR_TRANSFER_ABORTED   Upon event failure
- *  @retval      Any Other Error code apart from FSP_SUCCESS,  Unsuccessful write operation
- ****************************************************************************************************************/
-fsp_err_t uart_print_user_msg(uint8_t *p_msg)
+/**
+ *
+ * @param p_msg
+ * @param msg_len
+ * @return
+ */
+fsp_err_t uart_print_user_msg(uint8_t *p_msg, uint16_t msg_len)
 {
     fsp_err_t err   = FSP_SUCCESS;
-    uint8_t msg_len = RESET_VALUE;
-    volatile uint32_t local_timeout = (DATA_LENGTH * UINT16_MAX);   /* could happen optimization */
-    char *p_temp_ptr = (char *)p_msg;
-
-    /* Calculate length of message received */
-    msg_len = ((uint8_t)(strlen(p_temp_ptr)));
 
     /* Reset callback capture variable */
-    g_uart_event = RESET_VALUE;
     g_uart_tx_completed = false;
+    g_uart_error = false;
 
-    /* Writing to terminal */
     err = R_SCI_UART_Write (&g_uart3_ctrl, p_msg, msg_len);
-    if (FSP_SUCCESS != err)
-    {
-        APP_ERR_PRINT ("\r\n**  R_SCI_UART_Write API Failed  **\r\n");
+    if (FSP_SUCCESS != err) {
         return err;
     }
 
     /* Check for event transfer complete */
-    //while ((UART_EVENT_TX_COMPLETE != g_uart_event) && (--local_timeout))
-    while ((g_uart_tx_completed == false)
-            && (--local_timeout))
-    {
+    while (g_uart_tx_completed == false) {
         /* Check if any error event occurred */
-        if (g_uart_error == true)
-        {
-            g_uart_error = false;
-            APP_ERR_PRINT ("\r\n**  UART Error Event Received  **\r\n");
-            APP_ERR_PRINT ("Error %d \r\n", g_uart_event);
+        if (g_uart_error == true) {
             return FSP_ERR_TRANSFER_ABORTED;
         }
 
-        __NOP();
-    }
-
-    if(RESET_VALUE == local_timeout)
-    {
-        err = FSP_ERR_TIMEOUT;
     }
 
     return err;
+}
+
+/**
+ *
+ * @param c
+ */
+void uart_putc(uint8_t c)
+{
+    g_uart_tx_empty = false;
+    R_SCI_UART_Write(&g_uart3_ctrl, &c, 1);
+    while(g_uart_tx_empty == false){};
 }
 
 /**
@@ -234,6 +223,11 @@ void user_uart_callback(uart_callback_args_t *p_args)
         case UART_EVENT_TX_COMPLETE:
         {
             g_uart_tx_completed = true;
+        }
+        break;
+        case UART_EVENT_TX_DATA_EMPTY:
+        {
+            g_uart_tx_empty = true;
         }
         break;
         case UART_EVENT_ERR_PARITY:
