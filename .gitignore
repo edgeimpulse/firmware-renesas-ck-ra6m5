@@ -5,3 +5,5 @@ Release/
 
 *.launch
 *.DS_Store
+create-arduino-library.sh
+
